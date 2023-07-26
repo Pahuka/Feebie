@@ -1,8 +1,13 @@
 ﻿using ConsolePlotter;
 using Newtonsoft.Json;
 
+var _version = new Version(1, 0, 0);
 var checker = new FreeSpaceChecker();
 var settings = new Settings();
+
+Console.WriteLine(
+	$"Plotter\nВерсия: {_version}\n\n*** Поблагодарить разработчиков - кошелек XCH xch1hgl5mj53yj73q54lwhr72qd5gzskh6eu9cswj065y3y5crhw2q6q9yz0r7 ***");
+Console.WriteLine("\n------------------------------------------------------------------------------------------------");
 
 if (File.Exists("settings.json"))
 {
@@ -38,20 +43,18 @@ else
 	File.WriteAllText("settings.json", serializeSettings);
 }
 
-Console.WriteLine("Run Plotter\n*** Поблагодарить разработчиков - кошелек XCH xch13zeze330fl05w4qq8rat3fd74h33x87p46tnmert88qjka0yjftsp97ell ***");
-
 var drivers = DriveInfo.GetDrives()
 	.Where(x => x.DriveType == DriveType.Fixed)
 	//.Where(x => x.DriveType != DriveType.CDRom)
 	.ToArray();
 
-var selectedDriver = drivers
+var selectedDrive = drivers
 	.Where(x => x.Name.Contains(settings.SourceDrive))
 	.FirstOrDefault();
 
-if (selectedDriver == null)
+if (selectedDrive == null)
 {
-	Console.WriteLine("Указанный диск не обнаружен");
+	Console.WriteLine($"Указанный диск {settings.SourceDrive} не обнаружен");
 	Console.ReadLine();
 	return;
 }
@@ -68,7 +71,8 @@ while (true)
 		var result = false;
 		Thread.Sleep(settings.Delay);
 
-		var file = Directory.GetFiles(Path.Combine(settings.SourceDrive, settings.SourceDirectory), "*.plot").FirstOrDefault();
+		var file = Directory.GetFiles(Path.Combine(settings.SourceDrive, settings.SourceDirectory), "*.plot")
+			.FirstOrDefault();
 
 		if (file == null)
 		{
@@ -76,29 +80,20 @@ while (true)
 			continue;
 		}
 
-		foreach (var driver in destinationDrivers)
-			if (driver.TotalFreeSpace >= settings.FreeSpaceSize)
+		foreach (var drive in destinationDrivers)
+			if (drive.TotalFreeSpace >= settings.FreeSpaceSize)
 			{
-				var newFilePath = Path.Combine(driver.Name, settings.DestinationDirectory, Path.GetFileName(file));
+				var newFilePath = Path.Combine(drive.Name, settings.DestinationDirectory, Path.GetFileName(file));
 
 				Console.WriteLine(
 					$"Файл есть, перемещаем в {newFilePath}");
 
-				Directory.CreateDirectory(Path.Combine(driver.Name, settings.DestinationDirectory));
+				Directory.CreateDirectory(Path.Combine(drive.Name, settings.DestinationDirectory));
 
 				var tempName = file + "Copy";
-				var tempPath = Path.Combine(driver.Name, settings.DestinationDirectory, Path.GetFileName(tempName));
+				var tempPath = Path.Combine(drive.Name, settings.DestinationDirectory, Path.GetFileName(tempName));
 
-				//if (!File.Exists(file))
-				//{
-				//	Console.WriteLine($"Не нашел файл: {file}");
-				//	continue;
-				//}
-
-				var task = Task.Run(() =>
-				{
-					File.Move(file, tempName);
-				});
+				var task = Task.Run(() => { File.Move(file, tempName); });
 				task.Wait();
 
 				task = Task.Run(() =>
@@ -117,12 +112,12 @@ while (true)
 
 				task.Wait();
 				result = task.IsCompletedSuccessfully;
-				
+
 				break;
 			}
 			else
 			{
-				var dirs = Directory.GetDirectories(driver.Name)
+				var dirs = Directory.GetDirectories(drive.Name)
 					.Where(x => !x.Contains(settings.DestinationDirectory))
 					.Where(x => !string.IsNullOrEmpty(new DirectoryInfo(x).LinkTarget));
 
@@ -131,26 +126,18 @@ while (true)
 					if (!checker.Check(new DirectoryInfo(dir).LinkTarget))
 						continue;
 
-					//if (!File.Exists(file))
-					//{
-					//	Console.WriteLine($"Не нашел файл: {file}");
-					//	continue;
-					//}
-
-					var newPath = Path.Combine(driver.Name, dir, settings.DestinationDirectory, Path.GetFileName(file));
+					var newPath = Path.Combine(drive.Name, dir, settings.DestinationDirectory, Path.GetFileName(file));
 
 					Console.WriteLine(
 						$"Файл есть, перемещаем в {newPath}");
 
-					Directory.CreateDirectory(Path.Combine(driver.Name, settings.DestinationDirectory));
+					Directory.CreateDirectory(Path.Combine(drive.Name, settings.DestinationDirectory));
 
 					var tempName = file + "Copy";
-					var tempPath = Path.Combine(driver.Name, dir, settings.DestinationDirectory, Path.GetFileName(tempName));
+					var tempPath = Path.Combine(drive.Name, dir, settings.DestinationDirectory,
+						Path.GetFileName(tempName));
 
-					var task = Task.Run(() =>
-					{
-						File.Move(file, tempName);
-					});
+					var task = Task.Run(() => { File.Move(file, tempName); });
 					task.Wait();
 
 					task = Task.Run(() =>
