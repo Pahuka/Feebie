@@ -4,7 +4,7 @@ namespace ConsolePlotter;
 
 public class FreeSpaceChecker
 {
-	private long _freeSpace = 891205713;
+	public long FreeSpaceSize { get; set; } = 89120571392;
 
 	public bool Check(string deviceId)
 	{
@@ -23,8 +23,8 @@ public class FreeSpaceChecker
 
 			if (volumeObj.Path.Path.Contains(deviceId))
 			{
-				var currentSpace = long.Parse(volumeObj["FreeSpace"].ToString());
-				result = currentSpace >= _freeSpace;
+				var currentSpace = long.Parse(volumeObj["FreeSpaceSize"].ToString());
+				result = currentSpace >= FreeSpaceSize;
 				break;
 			}
 		}

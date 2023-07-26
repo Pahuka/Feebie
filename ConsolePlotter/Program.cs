@@ -4,8 +4,6 @@ using Newtonsoft.Json;
 var checker = new FreeSpaceChecker();
 var settings = new Settings();
 
-Console.WriteLine("Run Plotter\n*** Поблагодарить разработчиков - кошелек XCH xch13zeze330fl05w4qq8rat3fd74h33x87p46tnmert88qjka0yjftsp97ell ***");
-
 if (File.Exists("settings.json"))
 {
 	Console.WriteLine("Найден файл settings.json, загрузка настроек");
@@ -15,6 +13,8 @@ if (File.Exists("settings.json"))
 }
 else
 {
+	Console.WriteLine("Не найден файл settings.json, укажите данные:");
+
 	Console.WriteLine("Укажите букву системного диска, который будет игнорироваться:");
 	settings.SystemDrive = Console.ReadLine().ToUpper() + ":\\";
 
@@ -27,16 +27,22 @@ else
 	Console.WriteLine("Укажите путь к папке в которую будет производится перенос файлов:");
 	settings.DestinationDirectory = Path.Combine(Console.ReadLine());
 
-	Console.WriteLine("Укажите время задержки в секундах для повторной проверки файла:");
+	Console.WriteLine("Укажите целое число в секундах для повторной проверки файла:");
 	settings.Delay = int.Parse(Console.ReadLine()) * 1000;
+
+	Console.WriteLine("Укажите целое число в гигабайтах для минимального свободного места на диске для копирования:");
+	settings.FreeSpaceSize = int.Parse(Console.ReadLine()) * 1024 * 1024 * 1024;
+	checker.FreeSpaceSize = settings.FreeSpaceSize;
 
 	var serializeSettings = JsonConvert.SerializeObject(settings);
 	File.WriteAllText("settings.json", serializeSettings);
 }
 
+Console.WriteLine("Run Plotter\n*** Поблагодарить разработчиков - кошелек XCH xch13zeze330fl05w4qq8rat3fd74h33x87p46tnmert88qjka0yjftsp97ell ***");
+
 var drivers = DriveInfo.GetDrives()
-	//.Where(x => x.DriveType == DriveType.Fixed)
-	.Where(x => x.DriveType != DriveType.CDRom)
+	.Where(x => x.DriveType == DriveType.Fixed)
+	//.Where(x => x.DriveType != DriveType.CDRom)
 	.ToArray();
 
 var selectedDriver = drivers
@@ -71,7 +77,7 @@ while (true)
 		}
 
 		foreach (var driver in destinationDrivers)
-			if (driver.TotalFreeSpace >= 89120571392)
+			if (driver.TotalFreeSpace >= settings.FreeSpaceSize)
 			{
 				var newFilePath = Path.Combine(driver.Name, settings.DestinationDirectory, Path.GetFileName(file));
 
@@ -83,25 +89,36 @@ while (true)
 				var tempName = file + "Copy";
 				var tempPath = Path.Combine(driver.Name, settings.DestinationDirectory, Path.GetFileName(tempName));
 
-				if (!File.Exists(file))
-				{
-					Console.WriteLine($"Не нашел файл: {file}");
-					continue;
-				}
+				//if (!File.Exists(file))
+				//{
+				//	Console.WriteLine($"Не нашел файл: {file}");
+				//	continue;
+				//}
 
-				var task = Task.Run(() => { File.Move(file, tempName); });
+				var task = Task.Run(() =>
+				{
+					File.Move(file, tempName);
+				});
 				task.Wait();
 
 				task = Task.Run(() =>
 				{
+					Console.WriteLine($"Копирование {tempName}");
 					File.Move(tempName, tempPath);
 				});
 
 				task.Wait();
 
-				task = Task.Run(() => { File.Move(tempPath, newFilePath); });
+				task = Task.Run(() =>
+				{
+					Console.WriteLine($"Переименовывание {tempPath}");
+					File.Move(tempPath, newFilePath);
+				});
+
 				task.Wait();
 				result = task.IsCompletedSuccessfully;
+				
+				break;
 			}
 			else
 			{
@@ -114,11 +131,11 @@ while (true)
 					if (!checker.Check(new DirectoryInfo(dir).LinkTarget))
 						continue;
 
-					if (!File.Exists(file))
-					{
-						Console.WriteLine($"Не нашел файл: {file}");
-						continue;
-					}
+					//if (!File.Exists(file))
+					//{
+					//	Console.WriteLine($"Не нашел файл: {file}");
+					//	continue;
+					//}
 
 					var newPath = Path.Combine(driver.Name, dir, settings.DestinationDirectory, Path.GetFileName(file));
 
@@ -130,20 +147,32 @@ while (true)
 					var tempName = file + "Copy";
 					var tempPath = Path.Combine(driver.Name, dir, settings.DestinationDirectory, Path.GetFileName(tempName));
 
-					var task = Task.Run(() => { File.Move(file, tempName); });
+					var task = Task.Run(() =>
+					{
+						File.Move(file, tempName);
+					});
 					task.Wait();
 
 					task = Task.Run(() =>
 					{
+						Console.WriteLine($"Копирование {tempName}");
 						File.Move(tempName, tempPath);
 					});
 
 					task.Wait();
 
-					task = Task.Run(() => { File.Move(tempPath, newPath); });
+					task = Task.Run(() =>
+					{
+						Console.WriteLine($"Переименовывание {tempPath}");
+						File.Move(tempPath, newPath);
+					});
 					task.Wait();
 					result = task.IsCompletedSuccessfully;
+
+					break;
 				}
+
+				break;
 			}
 
 		if (!result)
@@ -151,6 +180,8 @@ while (true)
 			Console.WriteLine("Файл не скопирован, не обнаружены диски со свободным объемом в 83 гигабайта");
 			break;
 		}
+
+		Console.WriteLine("\nНовый цикл");
 	}
 
 	catch (Exception e)
