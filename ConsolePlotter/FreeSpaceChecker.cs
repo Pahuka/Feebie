@@ -4,7 +4,7 @@ namespace ConsolePlotter;
 
 public class FreeSpaceChecker
 {
-	private long _freeSpace = 89120571392;
+	private long _freeSpace = 891205713;
 
 	public bool Check(string deviceId)
 	{
