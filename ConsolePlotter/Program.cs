@@ -48,6 +48,9 @@ else
 	File.WriteAllText("settings.json", serializeSettings);
 }
 
+Console.WriteLine("Для запуска процесса нажмите любую клавишу");
+Console.ReadKey();
+
 var drivers = DriveInfo.GetDrives()
 	//.Where(x => x.DriveType == DriveType.Fixed)
 	.Where(x => x.DriveType != DriveType.CDRom)
@@ -74,7 +77,6 @@ while (true)
 	try
 	{
 		var result = false;
-		Thread.Sleep(_settings.Delay);
 
 		if (_taskList.Count == _settings.MaxCopyThreads)
 		{
@@ -87,7 +89,8 @@ while (true)
 
 		if (file == null)
 		{
-			Console.WriteLine("Файла нет");
+			Console.WriteLine($"\n{DateTime.Now}\tФайла нет\tНовый цикл, ждем {_settings.Delay / 1000} секунд");
+			Thread.Sleep(_settings.Delay);
 			continue;
 		}
 
@@ -128,7 +131,8 @@ while (true)
 		//	break;
 		//}
 
-		Console.WriteLine("\nНовый цикл");
+		Console.WriteLine($"\nНовый цикл, ждем {_settings.Delay / 1000} секунд");
+		Thread.Sleep(_settings.Delay);
 	}
 
 	catch (Exception e)
@@ -137,7 +141,7 @@ while (true)
 		throw;
 	}
 
-Console.WriteLine("Работа завершена");
+Console.WriteLine($"{DateTime.Now}\tРабота завершена");
 Console.ReadKey();
 
 void SearchInDirectories(string driveName, string file)
@@ -179,12 +183,12 @@ async Task MoveFile(string file, string tempPath, string newFilePath)
 	await Task.Run(() => { File.Move(file, tempName); });
 	await Task.Run(() =>
 	{
-		Console.WriteLine($"Копирование {tempName}");
+		Console.WriteLine($"{DateTime.Now}\tКопирование {tempName}");
 		File.Move(tempName, tempPath);
 	});
 	await Task.Run(() =>
 	{
-		Console.WriteLine($"Переименовывание {tempPath}");
+		Console.WriteLine($"{DateTime.Now}\tПереименовывание {tempPath}");
 		File.Move(tempPath, newFilePath);
 	});
 }
