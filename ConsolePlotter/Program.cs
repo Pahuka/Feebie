@@ -1,7 +1,7 @@
 ﻿using ConsolePlotter;
 using Newtonsoft.Json;
 
-var _version = new Version(1, 0, 0);
+var _version = new Version(1, 2, 0);
 var _checker = new FreeSpaceChecker();
 var _settings = new Settings();
 var _taskList = new List<Task>();
@@ -89,7 +89,11 @@ while (true)
 
 		if (file == null)
 		{
-			Console.WriteLine($"\n{DateTime.Now}\tФайла нет\tНовый цикл, ждем {_settings.Delay / 1000} секунд");
+			if (_taskList.Count == 1 && _taskList[0].IsCompleted)
+				_taskList.RemoveAt(0);
+			
+			Console.ForegroundColor = _taskList.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
+			Console.WriteLine($"\n{DateTime.Now}\tНовых файлов нет\tНа данный момент копируется {_taskList.Count} файлов");
 			Thread.Sleep(_settings.Delay);
 			continue;
 		}
@@ -105,12 +109,12 @@ while (true)
 				if (Directory.Exists(newFileDirectory) && Directory.GetFiles(Path.GetDirectoryName(tempFilePath), 
 					    "*" + Path.GetExtension(tempFilePath)).Length > 0)
 				{
-					Console.WriteLine($"На диск {drive.Name} уже идет копирование, ищем другой");
+					//Console.WriteLine($"На диск {drive.Name} уже идет копирование, ищем другой");
 					SearchInDirectories(drive.Name, file);
 					continue;
 				}
 
-				Console.WriteLine($"Файл есть, перемещаем в {newFilePath}");
+				//Console.WriteLine($"Файл есть, перемещаем в {newFilePath}");
 
 				Directory.CreateDirectory(newFileDirectory);
 
@@ -125,14 +129,8 @@ while (true)
 				break;
 			}
 
-		//if (!result)
-		//{
-		//	Console.WriteLine("Файл не скопирован, не обнаружены диски со свободным объемом в 83 гигабайта");
-		//	break;
-		//}
-
-		Console.WriteLine($"\nНовый цикл, ждем {_settings.Delay / 1000} секунд");
 		Thread.Sleep(_settings.Delay);
+		//Console.WriteLine($"\nНовый цикл");
 	}
 
 	catch (Exception e)
@@ -159,14 +157,14 @@ void SearchInDirectories(string driveName, string file)
 		var newPath = Path.Combine(driveName, dir, _settings.DestinationDirectory, Path.GetFileName(file));
 		var tempFilePath = Path.Combine(driveName, dir, _settings.DestinationDirectory, Path.GetFileName(file) + "Copy");
 
-		if (Directory.Exists(tempFilePath) && Directory.GetFiles(Path.GetDirectoryName(tempFilePath),
+		if (Directory.Exists(newFileDirectory) && Directory.GetFiles(Path.GetDirectoryName(tempFilePath),
 			    "*" + Path.GetExtension(tempFilePath)).Length > 0)
 		{
-			Console.WriteLine($"На диск {Path.Combine(driveName, dir)} уже идет копирование, ищем другой");
+			//Console.WriteLine($"На диск {Path.Combine(driveName, dir)} уже идет копирование, ищем другой");
 			continue;
 		}
 
-		Console.WriteLine($"Файл есть, перемещаем в {newPath}");
+		//Console.WriteLine($"Файл есть, перемещаем в {newPath}");
 
 		Directory.CreateDirectory(newFileDirectory);
 
@@ -183,12 +181,14 @@ async Task MoveFile(string file, string tempPath, string newFilePath)
 	await Task.Run(() => { File.Move(file, tempName); });
 	await Task.Run(() =>
 	{
+		Console.ForegroundColor = ConsoleColor.DarkYellow;
 		Console.WriteLine($"{DateTime.Now}\tКопирование {tempName}");
 		File.Move(tempName, tempPath);
 	});
 	await Task.Run(() =>
 	{
-		Console.WriteLine($"{DateTime.Now}\tПереименовывание {tempPath}");
+		Console.ForegroundColor = ConsoleColor.Green;
+		Console.WriteLine($"{DateTime.Now}\tФайл перемещен {newFilePath}");
 		File.Move(tempPath, newFilePath);
 	});
 }
