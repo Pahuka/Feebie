@@ -7,5 +7,6 @@ public class Settings
 	public string SourceDirectory { get; set; }
 	public string DestinationDirectory { get; set; }
 	public int Delay { get; set; }
+	public int MaxCopyThreads { get; set; }
 	public long FreeSpaceSize { get; set; }
 }
