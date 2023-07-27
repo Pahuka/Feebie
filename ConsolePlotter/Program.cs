@@ -1,7 +1,7 @@
 ﻿using ConsolePlotter;
 using Newtonsoft.Json;
 
-var _version = new Version(1, 2, 0);
+var _version = new Version(1, 3, 0);
 var _checker = new FreeSpaceChecker();
 var _settings = new Settings();
 var _taskList = new List<Task>();
