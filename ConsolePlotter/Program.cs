@@ -1,7 +1,7 @@
 ﻿using ConsolePlotter;
 using Newtonsoft.Json;
 
-var _version = new Version(1, 3, 0);
+var _version = new Version(1, 4, 0);
 var _checker = new FreeSpaceChecker();
 var _settings = new Settings();
 var _taskList = new List<Task>();
@@ -89,8 +89,9 @@ while (true)
 
 		if (file == null)
 		{
-			if (_taskList.Count == 1 && _taskList[0].IsCompleted)
-				_taskList.RemoveAt(0);
+			var completeTask = Task.WhenAny(_taskList);
+			if (_taskList.Count >= 1 && completeTask.IsCompleted)
+				_taskList.Remove(completeTask);
 			
 			Console.ForegroundColor = _taskList.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
 			Console.WriteLine($"\n{DateTime.Now}\tНовых файлов нет\tНа данный момент копируется {_taskList.Count} файлов");
