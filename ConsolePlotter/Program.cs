@@ -5,6 +5,7 @@ var _version = new Version(1, 4, 0);
 var _checker = new FreeSpaceChecker();
 var _settings = new Settings();
 var _taskList = new List<Task>();
+var _totalPlot = 0;
 
 Console.WriteLine(
 	$"Plotter\nВерсия: {_version}\n\n*** Поблагодарить разработчиков - кошелек XCH xch1hgl5mj53yj73q54lwhr72qd5gzskh6eu9cswj065y3y5crhw2q6q9yz0r7 ***");
@@ -73,6 +74,8 @@ var destinationDrivers = drivers
 
 Console.WriteLine($"Найдено {destinationDrivers.Length} дисков для копирования");
 
+AppDomain.CurrentDomain.ProcessExit += new EventHandler(CurrentDomain_ProcessExit);
+
 while (true)
 	try
 	{
@@ -89,9 +92,13 @@ while (true)
 
 		if (file == null)
 		{
-			var completeTask = Task.WhenAny(_taskList);
-			if (_taskList.Count >= 1 && completeTask.IsCompleted)
-				_taskList.Remove(completeTask);
+			
+			if (_taskList.Count >= 1)
+			{
+				var completeTask = Task.WhenAny(_taskList);
+				if(completeTask.IsCompleted)
+					_taskList.Remove(completeTask);
+			}
 			
 			Console.ForegroundColor = _taskList.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
 			Console.WriteLine($"\n{DateTime.Now}\tНовых файлов нет\tНа данный момент копируется {_taskList.Count} файлов");
@@ -189,7 +196,13 @@ async Task MoveFile(string file, string tempPath, string newFilePath)
 	await Task.Run(() =>
 	{
 		Console.ForegroundColor = ConsoleColor.Green;
-		Console.WriteLine($"{DateTime.Now}\tФайл перемещен {newFilePath}");
+		_totalPlot++;
+		Console.WriteLine($"{DateTime.Now}\tФайл № {_totalPlot} перемещен {newFilePath}");
 		File.Move(tempPath, newFilePath);
 	});
+}
+
+static void CurrentDomain_ProcessExit(object sender, EventArgs e)
+{
+	Console.WriteLine($"Завершаем все задачи по переносу файлов\nКолличество задач");
 }
