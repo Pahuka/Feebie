@@ -1,10 +1,11 @@
-﻿using ConsolePlotter;
+﻿using System.Runtime.CompilerServices;
+using ConsolePlotter;
 using Newtonsoft.Json;
 
-var _version = new Version(1, 4, 0);
+var _version = new Version(1, 6, 0);
 var _checker = new FreeSpaceChecker();
 var _settings = new Settings();
-var _taskList = new List<Task>();
+//var _taskList = new List<Task>();
 var _totalPlot = 0;
 
 Console.WriteLine(
@@ -37,7 +38,7 @@ else
 
 	Console.WriteLine("Укажите целое число в секундах для повторной проверки файла:");
 	_settings.Delay = int.Parse(Console.ReadLine()) * 1000;
-	
+
 	Console.WriteLine("Укажите целое число для ограничения максимального количества одновременного переноса файлов:");
 	_settings.MaxCopyThreads = int.Parse(Console.ReadLine());
 
@@ -74,17 +75,17 @@ var destinationDrivers = drivers
 
 Console.WriteLine($"Найдено {destinationDrivers.Length} дисков для копирования");
 
-AppDomain.CurrentDomain.ProcessExit += new EventHandler(CurrentDomain_ProcessExit);
+Console.CancelKeyPress += Console_CancelKeyPress;
 
-while (true)
+while (TaskManager.IsNotStopped)
 	try
 	{
 		var result = false;
 
-		if (_taskList.Count == _settings.MaxCopyThreads)
+		if (TaskManager.Tasks.Count == _settings.MaxCopyThreads)
 		{
-			var completeTask = await Task.WhenAny(_taskList);
-			_taskList.Remove(completeTask);
+			var completeTask = await Task.WhenAny(TaskManager.Tasks);
+			TaskManager.Tasks.Remove(completeTask);
 		}
 
 		var file = Directory.GetFiles(Path.Combine(_settings.SourceDrive, _settings.SourceDirectory), "*.plot") //TODO
@@ -92,16 +93,16 @@ while (true)
 
 		if (file == null)
 		{
-			
-			if (_taskList.Count >= 1)
+			Console.ForegroundColor = TaskManager.Tasks.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
+			Console.WriteLine(
+				$"\n{DateTime.Now}\tНовых файлов нет\tНа данный момент копируется {TaskManager.Tasks.Count} файлов");
+
+			if (TaskManager.Tasks.Count > 0)
 			{
-				var completeTask = Task.WhenAny(_taskList);
-				if(completeTask.IsCompleted)
-					_taskList.Remove(completeTask);
+				var completeTask = await Task.WhenAny(TaskManager.Tasks);
+				TaskManager.Tasks.Remove(completeTask);
 			}
-			
-			Console.ForegroundColor = _taskList.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
-			Console.WriteLine($"\n{DateTime.Now}\tНовых файлов нет\tНа данный момент копируется {_taskList.Count} файлов");
+
 			Thread.Sleep(_settings.Delay);
 			continue;
 		}
@@ -113,8 +114,8 @@ while (true)
 				var newFilePath = Path.Combine(drive.Name, _settings.DestinationDirectory, Path.GetFileName(file));
 				var tempFilePath = Path.Combine(drive.Name, _settings.DestinationDirectory,
 					Path.GetFileName(file + "Copy"));
-				
-				if (Directory.Exists(newFileDirectory) && Directory.GetFiles(Path.GetDirectoryName(tempFilePath), 
+
+				if (Directory.Exists(newFileDirectory) && Directory.GetFiles(Path.GetDirectoryName(tempFilePath),
 					    "*" + Path.GetExtension(tempFilePath)).Length > 0)
 				{
 					//Console.WriteLine($"На диск {drive.Name} уже идет копирование, ищем другой");
@@ -126,7 +127,7 @@ while (true)
 
 				Directory.CreateDirectory(newFileDirectory);
 
-				_taskList.Add(MoveFile(file, tempFilePath, newFilePath));
+				TaskManager.Tasks.Add(MoveFile(file, tempFilePath, newFilePath));
 
 				break;
 			}
@@ -147,7 +148,7 @@ while (true)
 		throw;
 	}
 
-Console.WriteLine($"{DateTime.Now}\tРабота завершена");
+//Console.WriteLine($"{DateTime.Now}\tРабота завершена");
 Console.ReadKey();
 
 void SearchInDirectories(string driveName, string file)
@@ -163,20 +164,19 @@ void SearchInDirectories(string driveName, string file)
 
 		var newFileDirectory = Path.Combine(driveName, dir, _settings.DestinationDirectory);
 		var newPath = Path.Combine(driveName, dir, _settings.DestinationDirectory, Path.GetFileName(file));
-		var tempFilePath = Path.Combine(driveName, dir, _settings.DestinationDirectory, Path.GetFileName(file) + "Copy");
+		var tempFilePath =
+			Path.Combine(driveName, dir, _settings.DestinationDirectory, Path.GetFileName(file) + "Copy");
 
 		if (Directory.Exists(newFileDirectory) && Directory.GetFiles(Path.GetDirectoryName(tempFilePath),
 			    "*" + Path.GetExtension(tempFilePath)).Length > 0)
-		{
 			//Console.WriteLine($"На диск {Path.Combine(driveName, dir)} уже идет копирование, ищем другой");
 			continue;
-		}
 
 		//Console.WriteLine($"Файл есть, перемещаем в {newPath}");
 
 		Directory.CreateDirectory(newFileDirectory);
 
-		_taskList.Add(MoveFile(file, tempFilePath, newPath));
+		TaskManager.Tasks.Add(MoveFile(file, tempFilePath, newPath));
 
 		break;
 	}
@@ -197,12 +197,18 @@ async Task MoveFile(string file, string tempPath, string newFilePath)
 	{
 		Console.ForegroundColor = ConsoleColor.Green;
 		_totalPlot++;
-		Console.WriteLine($"{DateTime.Now}\tФайл № {_totalPlot} перемещен {newFilePath}");
+		Console.WriteLine($"{DateTime.Now}\tФайл номер {_totalPlot} перемещен {newFilePath}");
 		File.Move(tempPath, newFilePath);
 	});
 }
 
-static void CurrentDomain_ProcessExit(object sender, EventArgs e)
+static void Console_CancelKeyPress(object sender, EventArgs e)
 {
-	Console.WriteLine($"Завершаем все задачи по переносу файлов\nКолличество задач");
+	TaskManager.IsNotStopped = false;
+	Console.ForegroundColor = TaskManager.Tasks.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
+	Console.WriteLine($"Закрытие программы\nЗавершаем все задачи по переносу файлов\nКолличество задач {TaskManager.Tasks.Count}");
+	Task.WaitAll(TaskManager.Tasks.ToArray());
+	Console.ForegroundColor = ConsoleColor.Green;
+	Console.WriteLine("Все задачи завершены");
+	Console.ReadKey();
 }
