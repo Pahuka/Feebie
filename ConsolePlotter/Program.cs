@@ -23,8 +23,9 @@ else
 {
 	Console.WriteLine("Не найден файл settings.json, укажите данные:");
 
-	Console.WriteLine("Укажите букву системного диска, который будет игнорироваться:");
-	_settings.SystemDrive = Console.ReadLine().ToUpper() + ":\\";
+	Console.WriteLine("Укажите буквы дисков через пробел, которые будут игнорироваться:");
+	_settings.IgnoreDrives = Console.ReadLine().ToUpper().Split(" ")
+		.Select(x=> x + ":\\").ToList();
 
 	Console.WriteLine("Укажите букву диска, с которого будет перенос файлов:");
 	_settings.SourceDrive = Console.ReadLine().ToUpper() + ":\\";
@@ -69,16 +70,17 @@ if (selectedDrive == null)
 }
 
 var destinationDrivers = drivers
-	.Where(x => x.Name != _settings.SourceDrive && x.Name != _settings.SystemDrive)
+	.Where(x => x.Name != _settings.SourceDrive && !_settings.IgnoreDrives.Contains(x.Name))
 	.ToArray();
 
-Console.WriteLine($"Найдено {destinationDrivers.Length} дисков для копирования");
+Console.WriteLine($"Найдено {destinationDrivers.Length} дисков для копирования\n");
 
 foreach (var driveName in destinationDrivers)
 {
 	Console.Write($"\t{driveName.Name}");
 }
 
+Console.WriteLine("\n");
 Console.CancelKeyPress += Console_CancelKeyPress;
 
 while (TaskManager.IsNotStopped)
@@ -113,6 +115,7 @@ while (TaskManager.IsNotStopped)
 
 		foreach (var drive in destinationDrivers)
 		{
+			//Console.ForegroundColor = ConsoleColor.Cyan;
 			//Console.WriteLine($"Min free space drive {_settings.FreeSpaceSize}");
 			//Console.WriteLine($"{drive.Name} : {drive.TotalFreeSpace} - {drive.TotalFreeSpace >= _settings.FreeSpaceSize}");
 
@@ -127,8 +130,10 @@ while (TaskManager.IsNotStopped)
 					    "*" + Path.GetExtension(tempFilePath)).Length > 0)
 				{
 					//Console.WriteLine($"На диск {drive.Name} уже идет копирование, ищем другой");
-					SearchInDirectories(drive.Name, file);
-					continue;
+					if (SearchInDirectories(drive.Name, file))
+						break;
+					else
+						continue;
 				}
 
 				//Console.WriteLine($"Файл есть, перемещаем в {newFilePath}");
@@ -136,6 +141,8 @@ while (TaskManager.IsNotStopped)
 				Directory.CreateDirectory(newFileDirectory);
 
 				TaskManager.Tasks.Add(MoveFile(file, tempFilePath, newFilePath));
+				//Console.ForegroundColor = ConsoleColor.DarkMagenta;
+				//Console.WriteLine($"Добавляем новую задачу номер {TaskManager.Tasks.Count} для диска {drive.Name}");
 
 				break;
 			}
@@ -162,9 +169,14 @@ Console.ReadKey();
 
 bool SearchInDirectories(string driveName, string file)
 {
-	var dirs = Directory.GetDirectories(driveName)
+	IEnumerable<string> dirs;
+
+	dirs = String.IsNullOrEmpty(_settings.DestinationDirectory) ?
+		Directory.GetDirectories(driveName)
+			.Where(x => !string.IsNullOrEmpty(new DirectoryInfo(x).LinkTarget)) :
+		Directory.GetDirectories(driveName)
 		.Where(x => !x.Contains(_settings.DestinationDirectory))
-		.Where(x => !string.IsNullOrEmpty(new DirectoryInfo(x).LinkTarget));
+		.Where(x => !string.IsNullOrEmpty(new DirectoryInfo(x).LinkTarget)); //TODO надо предусмотреть ситуацию, когда не указывают папку куда копировать
 
 	foreach (var dir in dirs)
 	{
@@ -186,6 +198,8 @@ bool SearchInDirectories(string driveName, string file)
 		Directory.CreateDirectory(newFileDirectory);
 
 		TaskManager.Tasks.Add(MoveFile(file, tempFilePath, newPath));
+		//Console.ForegroundColor = ConsoleColor.DarkMagenta;
+		//Console.WriteLine($"Добавляем новую задачу номер {TaskManager.Tasks.Count} для диска {dir}");
 
 		return true;
 	}
