@@ -176,7 +176,7 @@ bool SearchInDirectories(string driveName, string file)
 			.Where(x => !string.IsNullOrEmpty(new DirectoryInfo(x).LinkTarget)) :
 		Directory.GetDirectories(driveName)
 		.Where(x => !x.Contains(_settings.DestinationDirectory))
-		.Where(x => !string.IsNullOrEmpty(new DirectoryInfo(x).LinkTarget)); //TODO надо предусмотреть ситуацию, когда не указывают папку куда копировать
+		.Where(x => !string.IsNullOrEmpty(new DirectoryInfo(x).LinkTarget));
 
 	foreach (var dir in dirs)
 	{
