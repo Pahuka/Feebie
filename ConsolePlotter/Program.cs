@@ -2,10 +2,9 @@
 using ConsolePlotter;
 using Newtonsoft.Json;
 
-var _version = new Version(1, 6, 0);
+var _version = new Version(1, 7, 0);
 var _checker = new FreeSpaceChecker();
 var _settings = new Settings();
-//var _taskList = new List<Task>();
 var _totalPlot = 0;
 
 Console.WriteLine(
@@ -75,6 +74,11 @@ var destinationDrivers = drivers
 
 Console.WriteLine($"Найдено {destinationDrivers.Length} дисков для копирования");
 
+foreach (var driveName in destinationDrivers)
+{
+	Console.Write($"\t{driveName.Name}");
+}
+
 Console.CancelKeyPress += Console_CancelKeyPress;
 
 while (TaskManager.IsNotStopped)
@@ -108,6 +112,10 @@ while (TaskManager.IsNotStopped)
 		}
 
 		foreach (var drive in destinationDrivers)
+		{
+			//Console.WriteLine($"Min free space drive {_settings.FreeSpaceSize}");
+			//Console.WriteLine($"{drive.Name} : {drive.TotalFreeSpace} - {drive.TotalFreeSpace >= _settings.FreeSpaceSize}");
+
 			if (drive.TotalFreeSpace >= _settings.FreeSpaceSize)
 			{
 				var newFileDirectory = Path.Combine(drive.Name, _settings.DestinationDirectory);
@@ -133,13 +141,14 @@ while (TaskManager.IsNotStopped)
 			}
 			else
 			{
-				SearchInDirectories(drive.Name, file);
-
-				break;
+				if(SearchInDirectories(drive.Name, file))
+					break;
+				else
+					continue;
 			}
+		}
 
 		Thread.Sleep(_settings.Delay);
-		//Console.WriteLine($"\nНовый цикл");
 	}
 
 	catch (Exception e)
@@ -151,7 +160,7 @@ while (TaskManager.IsNotStopped)
 //Console.WriteLine($"{DateTime.Now}\tРабота завершена");
 Console.ReadKey();
 
-void SearchInDirectories(string driveName, string file)
+bool SearchInDirectories(string driveName, string file)
 {
 	var dirs = Directory.GetDirectories(driveName)
 		.Where(x => !x.Contains(_settings.DestinationDirectory))
@@ -178,8 +187,10 @@ void SearchInDirectories(string driveName, string file)
 
 		TaskManager.Tasks.Add(MoveFile(file, tempFilePath, newPath));
 
-		break;
+		return true;
 	}
+
+	return false;
 }
 
 async Task MoveFile(string file, string tempPath, string newFilePath)
