@@ -79,7 +79,7 @@
 //foreach (var driveName in destinationDrivers)
 //	Console.Write($"\t{driveName.Name}");
 
-//var taskManager = new TaskManager(_settings.MaxCopyThreads);
+//var taskManager = new Producer(_settings.MaxCopyThreads);
 ////var consumer = new Consumer(taskManager.Tasks);
 ////consumer.Run();
 
@@ -218,6 +218,7 @@
 
 #endregion
 
+var cancellationToken = new CancellationToken();
 var consumer = new Consumer();
 
 consumer.Run();

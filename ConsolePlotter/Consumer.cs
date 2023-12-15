@@ -5,22 +5,18 @@ namespace ConsolePlotter;
 
 public class Consumer
 {
-	private readonly TaskManager _taskManager;
+	private readonly Producer _producer;
 	private FreeSpaceChecker _checker;
 	//private readonly BlockingCollection<Task> _collection;
 	private Settings _settings;
 	private int _totalPlot = 0;
-	private Version _version;
 
 	public Consumer()
 	{
-		_version = new Version(2, 0, 0);
 		//_collection = taskManager.Tasks;
 		_checker = new FreeSpaceChecker();
 		_settings = new Settings();
-		
-		Init();
-		_taskManager = new TaskManager(_settings.MaxCopyThreads);
+		_producer = new Producer(_settings.MaxCopyThreads);
 	}
 
 	public void Run()
@@ -46,7 +42,7 @@ public class Consumer
 		}
 
 		var destinationDrivers = drivers
-			//.Where(x => x.Name != _settings.SourceDrive && !_settings.IgnoreDrives.Contains(x.Name))
+			//.Where(x => x.Name != _settings.SourceDrive && !_settings.IgnoreDrives.Contains(x.Name)) //TODO: не забыть раскомментировать
 			.Where(x => !_settings.IgnoreDrives.Contains(x.Name))
 			.ToArray();
 
@@ -57,12 +53,12 @@ public class Consumer
 
 		Logger.WriteLog("\n");
 
-		while (!_taskManager.Tasks.IsAddingCompleted)
+		while (!_producer.Tasks.IsAddingCompleted)
 			try
 			{
 				if (Console.KeyAvailable) Console_CancelKeyPress();
 
-				if (_taskManager.Tasks.Count >= _settings.MaxCopyThreads)
+				if (_producer.Tasks.Count >= _settings.MaxCopyThreads)
 					Logger.WriteLog($"Достигнут лимит копирования ({_settings.MaxCopyThreads}).");
 
 				var file = Directory.GetFiles(Path.Combine(_settings.SourceDrive, _settings.SourceDirectory), "*.plot") //TODO
@@ -71,9 +67,9 @@ public class Consumer
 				if (file == null)
 				{
 					Console.ResetColor();
-					var logColor = _taskManager.Tasks.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
+					var logColor = _producer.Tasks.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
 					Logger.WriteLog(
-						$"\n{DateTime.Now}\tНовых файлов нет\tНа данный момент копируется {_taskManager.Tasks.Count} файлов",
+						$"\n{DateTime.Now}\tНовых файлов нет\tНа данный момент копируется {_producer.Tasks.Count} файлов",
 						logColor);
 
 					Thread.Sleep(_settings.Delay);
@@ -97,7 +93,7 @@ public class Consumer
 						}
 
 						Directory.CreateDirectory(newFileDirectory);
-						_taskManager.AddTask(MoveFile(file, tempFilePath, newFilePath), drive.Name);
+						_producer.AddTask(MoveFile(file, tempFilePath, newFilePath), drive.Name);
 
 						break;
 					}
@@ -116,58 +112,12 @@ public class Consumer
 				throw;
 			}
 
-		while (!_taskManager.Tasks.IsCompleted)
+		while (!_producer.Tasks.IsCompleted)
 		{
 		}
 
 		Logger.WriteLog("Все задачи завершены", ConsoleColor.Green);
 		Console.ReadKey();
-	}
-
-	private void Init()
-	{
-		Logger.WriteLog(
-	$"Plotter\nВерсия: {_version}\n\n*** Поблагодарить разработчиков - кошелек XCH xch1hgl5mj53yj73q54lwhr72qd5gzskh6eu9cswj065y3y5crhw2q6q9yz0r7 ***" +
-	$"\n------------------------------------------------------------------------------------------------");
-
-		if (File.Exists("settings.json"))
-		{
-			Logger.WriteLog("Найден файл settings.json, загрузка настроек");
-
-			var loadSettings = File.ReadAllText("settings.json");
-			_settings = JsonConvert.DeserializeObject<Settings>(loadSettings);
-			_checker.FreeSpaceSize = _settings.FreeSpaceSize;
-		}
-		else
-		{
-			Console.WriteLine("Не найден файл settings.json, укажите данные:");
-
-			Console.WriteLine("Укажите буквы дисков через пробел, которые будут игнорироваться:");
-			_settings.IgnoreDrives = Console.ReadLine().ToUpper().Split(" ")
-				.Select(x => x + ":\\").ToList();
-
-			Console.WriteLine("Укажите букву диска, с которого будет перенос файлов:");
-			_settings.SourceDrive = Console.ReadLine().ToUpper() + ":\\";
-
-			Console.WriteLine("Укажите путь к папке из которой будет производится перенос файлов:");
-			_settings.SourceDirectory = Path.Combine(_settings.SourceDrive, Console.ReadLine());
-
-			Console.WriteLine("Укажите путь к папке в которую будет производится перенос файлов:");
-			_settings.DestinationDirectory = Path.Combine(Console.ReadLine());
-
-			Console.WriteLine("Укажите целое число в секундах для повторной проверки файла:");
-			_settings.Delay = int.Parse(Console.ReadLine()) * 1000;
-
-			Console.WriteLine("Укажите целое число для ограничения максимального количества одновременного переноса файлов:");
-			_settings.MaxCopyThreads = int.Parse(Console.ReadLine());
-
-			Console.WriteLine("Укажите целое число в гигабайтах для минимального свободного места на диске для копирования:");
-			_settings.FreeSpaceSize = long.Parse(Console.ReadLine()) * 1024 * 1024 * 1024;
-			_checker.FreeSpaceSize = _settings.FreeSpaceSize;
-
-			var serializeSettings = JsonConvert.SerializeObject(_settings);
-			File.WriteAllText("settings.json", serializeSettings);
-		}
 	}
 
 	private bool SearchInDirectories(string driveName, string file)
@@ -200,7 +150,7 @@ public class Consumer
 
 			Logger.WriteLog($"Файл есть, перемещаем в {newPath}");
 			Directory.CreateDirectory(newFileDirectory);
-			_taskManager.AddTask(MoveFile(file, tempFilePath, newPath), dir);
+			_producer.AddTask(MoveFile(file, tempFilePath, newPath), dir);
 
 			return true;
 		}
@@ -215,23 +165,23 @@ public class Consumer
 			var tempName = file + "Copy";
 
 			File.Move(file, tempName);
-			Task.Delay(10000).Wait();
+			Task.Delay(10000).Wait(); //TODO: не забыть убрать в релизе
 			Logger.WriteLog($"{DateTime.Now}\tКопирование {tempName}", ConsoleColor.DarkYellow);
 			File.Move(tempName, tempPath);
 			_totalPlot++;
 			Logger.WriteLog($"{DateTime.Now}\tФайл номер {_totalPlot} перемещен {newFilePath}", ConsoleColor.Green);
 			File.Move(tempPath, newFilePath);
-			_taskManager.RemoveTask();
+			_producer.RemoveTask();
 		});
 	}
 
 	private void Console_CancelKeyPress()
 	{
-		_taskManager.Tasks.CompleteAdding();
+		_producer.Tasks.CompleteAdding();
 
-		var logColor = _taskManager.Tasks.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
+		var logColor = _producer.Tasks.Count >= 1 ? ConsoleColor.DarkYellow : ConsoleColor.DarkGray;
 		Logger.WriteLog(
-			$"Закрытие программы\nЗавершаем все задачи по переносу файлов\nКолличество задач {_taskManager.Tasks.Count}",
+			$"Закрытие программы\nЗавершаем все задачи по переносу файлов\nКолличество задач {_producer.Tasks.Count}",
 			logColor);
 	}
 }

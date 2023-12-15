@@ -2,9 +2,9 @@
 
 namespace ConsolePlotter;
 
-public class TaskManager
+public class Producer
 {
-	public TaskManager(int taskCapacity)
+	public Producer(int taskCapacity)
 	{
 		Tasks = new BlockingCollection<Task>(taskCapacity);
 	}
