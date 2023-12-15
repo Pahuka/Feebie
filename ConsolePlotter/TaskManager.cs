@@ -1,7 +1,35 @@
-﻿namespace ConsolePlotter;
+﻿using System.Collections.Concurrent;
 
-public static class TaskManager
+namespace ConsolePlotter;
+
+public class TaskManager
 {
-	public static bool IsNotStopped { get; set; } = true;
-	public static List<Task> Tasks { get; set; } = new List<Task>();
+	public TaskManager(int taskCapacity)
+	{
+		Tasks = new BlockingCollection<Task>(taskCapacity);
+	}
+
+	public BlockingCollection<Task> Tasks { get; }
+
+	public void RemoveTask()
+	{
+		try
+		{
+			var task = Tasks.Take();
+			Logger.WriteLog($"Удаляем завершенную задачу {task.Id}. Осталось {Tasks.Count} задач.");
+		}
+		catch (Exception e)
+		{
+			Console.WriteLine(e);
+		}
+	}
+
+	public void AddTask(Task task, string dir)
+	{
+		if(!Tasks.IsAddingCompleted)
+		{
+			Tasks.Add(task);
+			Logger.WriteLog($"Добавляем новую задачу {task.Id} для диска {dir}", ConsoleColor.DarkMagenta);
+		}
+	}
 }
