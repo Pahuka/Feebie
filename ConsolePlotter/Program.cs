@@ -15,7 +15,8 @@ Console.ReadKey();
 
 Task.Run(() =>
 {
-	if (Console.ReadKey(true).KeyChar == 'c') cancellationToken.Cancel();
+	if (Console.ReadKey(true).KeyChar == 'c' || Console.ReadKey(true).KeyChar == 'с') 
+		cancellationToken.Cancel();
 });
 
 Task.WaitAll(producer.Run(), consumer.Run(), consumer2.Run());
